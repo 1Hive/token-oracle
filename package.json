@@ -24,8 +24,9 @@
   "keywords": [],
   "description": "ACL Oracle enforcing token ownership",
   "devDependencies": {
-    "@aragon/cli": "^6.0.0",
+    "@aragon/cli": "7.0.4",
     "@aragon/test-helpers": "^2.1.0",
+    "@aragon/apps-shared-minime": "^1.0.2",
     "babel-eslint": "^10.0.3",
     "eslint": "^5.13.0",
     "eslint-config-prettier": "^6.5.0",

@@ -2,6 +2,8 @@ const { assertRevert } = require('./helpers/helpers')
 const Oracle = artifacts.require('TokenBalanceOracle')
 const MockErc20 = artifacts.require('TokenMock')
 const ExecutionTarget = artifacts.require('ExecutionTarget')
+const ACLCheckOracleCall = artifacts.require('ACLCheckOracleCall')
+const MiniMeToken = artifacts.require('MiniMeToken')
 
 const deployDAO = require('./helpers/deployDao')
 const { deployedContract } = require('./helpers/helpers')
@@ -9,12 +11,14 @@ const { hash: nameHash } = require('eth-ens-namehash')
 const BN = require('bn.js')
 
 const ANY_ADDR = '0xffffffffffffffffffffffffffffffffffffffff'
+const ZERO_ADDR = '0x0000000000000000000000000000000000000000'
 
 contract(
   'TokenBalanceOracle',
   ([appManager, accountBal900, accountBal100, accountBal0, nonContractAddress]) => {
     let oracleBase, oracle, mockErc20
     let SET_TOKEN_ROLE, SET_MIN_BALANCE_ROLE
+    let dao, acl
 
     const ORACLE_MINIMUM_BALANCE = 100
     const MOCK_TOKEN_BALANCE = 1000
@@ -42,6 +46,27 @@ contract(
       oracle = await Oracle.at(deployedContract(newOracleReceipt))
       mockErc20 = await MockErc20.new(accountBal900, MOCK_TOKEN_BALANCE)
       mockErc20.transfer(accountBal100, ORACLE_MINIMUM_BALANCE, { from: accountBal900 })
+    })
+
+    describe('Oracle canPerform() gas costs via ACL checkOracle() call', async () => {
+
+      let aclCheckOracleCall, miniMeToken;
+      const gasAvailable = 31000
+
+      it.only(`can execute with less than ${gasAvailable} gas`, async () => {
+        aclCheckOracleCall = await ACLCheckOracleCall.new()
+
+        miniMeToken = await MiniMeToken.new(ZERO_ADDR, ZERO_ADDR, 0, "Test", 18, "TST", true)
+        miniMeToken.generateTokens(accountBal900, 900)
+        await oracle.initialize(miniMeToken.address, 100)
+
+        const {canPerform, gasUsed} = await aclCheckOracleCall.checkOracle(oracle.address, [accountBal900], gasAvailable)
+
+        console.log(`  Gas used by assembly staticcall: ${gasUsed.toString()}`)
+        console.log(`  canPerform(): ${canPerform}`)
+
+        assert.isTrue(canPerform)
+      })
     })
 
     describe('initialize(address _token)', () => {
