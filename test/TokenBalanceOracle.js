@@ -15,7 +15,7 @@ const ZERO_ADDR = '0x0000000000000000000000000000000000000000'
 
 contract(
   'TokenBalanceOracle',
-  ([appManager, accountBal900, accountBal100, accountBal0, nonContractAddress]) => {
+  ([appManager, accountBal900, accountBal100, accountBal0, nonContractAddress, accountBalVar, accountBalVar2]) => {
     let oracleBase, oracle, mockErc20
     let SET_TOKEN_ROLE, SET_MIN_BALANCE_ROLE
     let dao, acl
@@ -51,22 +51,24 @@ contract(
     describe('Oracle canPerform() gas costs via ACL checkOracle() call', async () => {
 
       let aclCheckOracleCall, miniMeToken;
-      const gasAvailable = 31000
+      const staticCallGasLimit = 32000
 
-      it.only(`can execute with less than ${gasAvailable} gas`, async () => {
+      beforeEach(async () => {
         aclCheckOracleCall = await ACLCheckOracleCall.new()
-
         miniMeToken = await MiniMeToken.new(ZERO_ADDR, ZERO_ADDR, 0, "Test", 18, "TST", true)
-        miniMeToken.generateTokens(accountBal900, 900)
+        miniMeToken.generateTokens(accountBalVar, 10000)
         await oracle.initialize(miniMeToken.address, 100)
+      })
 
-        const {canPerform, gasUsed} = await aclCheckOracleCall.checkOracle(oracle.address, [accountBal900], gasAvailable)
+      it.only(`can execute with less than ${staticCallGasLimit} gas`, async () => {
+        const {canPerform, gasUsed} = await aclCheckOracleCall.checkOracle(oracle.address, [accountBalVar], staticCallGasLimit)
 
         console.log(`  Gas used by assembly staticcall: ${gasUsed.toString()}`)
         console.log(`  canPerform(): ${canPerform}`)
 
         assert.isTrue(canPerform)
       })
+
     })
 
     describe('initialize(address _token)', () => {
@@ -176,6 +178,7 @@ contract(
         })
       })
     })
+
     describe('app not initialized', () => {
       it('reverts on setting token', async () => {
         await assertRevert(oracle.setToken(mockErc20.address), 'APP_AUTH_FAILED')
